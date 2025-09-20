@@ -32,3 +32,21 @@ sudo apt install default-jdk
 sudo apt install android-tools-adb android-tools-fastboot
 ```
 
+## Introduction to SMALI
+As I mentioned in [a previous blogpost](https://github.com/yo-yo-yo-jbo/android_appsec_intro/), Android Apps are bundled as `*.apk` files.  
+Those are essentially zip files, with a predefined structure:
+- A metadata file called `AndroidManifest.xml`.
+- Bytecode files: those are `*.dex` files - you will most likely examine `classes.dex` even though `classes-2.dex` (etc.) files do exist.
+- Native libraries: will be `*.so` files under `lib/`.
+- Resources: such as pictures, audio and others - will be under `res/`.
+
+Since we will be focusing on modifying the bytecode, `classes.dex` is our primary target, but we will have to start with `AndroidManifest.xml` to understand what we'd like to focus on in the App.
+I did not mention it previously, but when treating `*.apk` files as archives - this file is binary (even though it has a `.xml` extension). Tools like `apktool` can convert it to a readable form - more on that later.
+
+Tools like `apktool` will extract all definitions and code in `classes.dex` and extract them to files with the extension `*.smali`.  
+Each file will commonly be a Java class, and contain the definitions of the class, as well as the Android bytecode.  
+Thus, let us start by describing the bytecode structure itself in each `*.smali` file.
+
+
+
+
