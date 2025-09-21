@@ -196,3 +196,62 @@ Notes:
 - Logic starts later at a condition: `if-eqz` should be read as "if equal to zero" - in this case, `p0` is our boolean, so it'd be equal to 0 if it's `false` (in JVM, zero is false and non-zero is true). If `p0` is zero we jump to a *label* named `:cond_0`. Labels start with a colon.
 - Assuming we did not jump, we assign register `v0` a constant string (via `const-string` instruction). If this looks odd (how can a 32-bit register contain an entire long string?) keep in mind this is implemented by having v0 refer to a data table in the class in which that string resides. We then call `return-object v0` to exit the function and return that string.
 - If we do jump, we end up in `:cond_0`, which assigns a different string and returns, similarly.
+
+To get a complete understanding, let us analyze the `showToast` method:
+
+```smali
+.method private showToast()V
+    .locals 5
+
+    .line 30
+    new-instance v0, Ljava/util/Random;
+
+    invoke-direct {v0}, Ljava/util/Random;-><init>()V
+
+    .line 31
+    .local v0, "random":Ljava/util/Random;
+    invoke-virtual {v0}, Ljava/util/Random;->nextBoolean()Z
+
+    move-result v1
+
+    .line 32
+    .local v1, "randomBoolean":Z
+    invoke-static {v1}, Lcom/jbo/toy/MainActivity;->getTitle(Z)Ljava/lang/String;
+
+    move-result-object v2
+
+    .line 33
+    .local v2, "title":Ljava/lang/String;
+    invoke-virtual {p0}, Lcom/jbo/toy/MainActivity;->getApplicationContext()Landroid/content/Context;
+
+    move-result-object v3
+
+    const/4 v4, 0x0
+
+    invoke-static {v3, v2, v4}, Landroid/widget/Toast;->makeText(Landroid/content/Context;Ljava/lang/CharSequence;I)Landroid/widget/Toast;
+
+    move-result-object v3
+
+    .line 34
+    .local v3, "toast":Landroid/widget/Toast;
+    invoke-virtual {v3}, Landroid/widget/Toast;->show()V
+
+    .line 35
+    return-void
+.end method
+```
+
+Let us quickly analyze it:
+- This method uses 5 local variables - registers `v0`, `v1`, `v2`, `v3` and `v4` - that's significantly higher than before!
+- We start by creating a new instance of the Java `Random` class and assigning it to `v0`. Note `new-instance` simply allocates bytes for the instance - we need to initialize it by calling its constructor with `invoke-direct` and calling `Random`'s `<init>` method as we saw earlier!
+- We then use `invoke-virtual` to call a virtual function - `Random`'s [nextBoolean](https://docs.oracle.com/javase/8/docs/api/java/util/Random.html#nextBoolean--) method.
+- We save its result (a boolean, as indicated by its signature `nextBoolean()Z`) into `v1`, using `move-result`.
+- We then use `invoke-static` to call a static method `getTitle`, which we have seen. We push `v1` as its argument and expecting get a resulting `String` instance.
+- We use `move-result-object` to save that `String` instance into `v2`.
+- Use call another virtual function - this time `getApplicationContext` function from our `MainActivity` - we push `this` (i.e. `p0`) and expect to get a `Context` back.
+- We save the `Context` into `v3`.
+- We assign `v4` the value of 0. Note `const/4` specifies the number of bytes - 4 corresponds to a 32-bit variable.
+- We invoke a static method - `Toast.makeText` and push `v3`, `v2` and `v4`. Note `makeText` gets 3 arguments: the `Context`, the `CharSequence` (which `String` is) and an integer (0 in our case).
+- We save the resulting `Toast` into `v3`. Yes - we can override `v3` with a completely different type and the JVM will keep track of that change.
+- We call the virtual method `show` on the resulting `Toast`.
+- We finish it off by invoking `return-void`.
