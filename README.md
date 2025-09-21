@@ -255,3 +255,42 @@ Let us quickly analyze it:
 - We save the resulting `Toast` into `v3`. Yes - we can override `v3` with a completely different type and the JVM will keep track of that change.
 - We call the virtual method `show` on the resulting `Toast`.
 - We finish it off by invoking `return-void`.
+
+### Our first patch
+Let's do something easy - let's make the functionality not so random and always show the website! We have several options:
+1. Patching the `showToast` method and passing `false` always to `getTitle`.
+2. Patching `getTitle` and making it return what we want, always.
+3. Ignoring `getTitle` completely - patch `showToast` and assign the string we want to the right register before creating the `Toast` object.
+
+I chose option #2 just for the sake of demonstration, but you are free to try with anything you like.  
+For that, we'd want to change `getTitle`'s `if-eqz p0, :cond_0` to `goto :cond_0`. How did I know `goto` is a valid instruction and its meaning?  
+Well, I look it up - a great reference exists [here](http://pallergabor.uw.hu/androidblog/dalvik_opcodes.html) and shows all instructions (and their opcodes too!).  
+Sometimes I'd also like to add some sort of debug strings - for that, using the [Log](https://developer.android.com/reference/android/util/Log) class really helps out!  
+I'll call `Log.d` and add a message, implementing that only in Smali!  
+So, I modified the `if` condition and added an invocation to `Log.d` - this is the "final" result:
+
+
+```smali
+.method private static getTitle(Z)Ljava/lang/String;
+    .locals 1
+    .param p0, "showName"    # Z
+
+    .line 38
+    const-string v0, "Patched by JBO"
+    invoke-static {v0, v0}, Landroid/util/Log;->d(Ljava/lang/String;Ljava/lang/String;)I
+    goto :cond_0
+
+    .line 39
+    const-string v0, "JBO (@yo_yo_yo_jbo)"
+
+    return-object v0
+
+    .line 42
+    :cond_0
+    const-string v0, "https://jonathanbaror.com"
+
+    return-object v0
+.end method
+```
+
+Note how I simply ignore the resulting `int` (`I`) from `Log.d` and how I used `v0` for the log message. I could do other things (like increasing `.locals` by one and using `v1`) but for the sake of simplicity I chose not to.
