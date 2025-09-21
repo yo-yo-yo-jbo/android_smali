@@ -20,6 +20,7 @@ We'll need a few tools to resign the App, and maybe understand *where* to patch.
 - `apktool` is quite easy to install - it's a `JAR` file so it can be run with Java. However, you can install it on a Linux box easily with `apt`.
 - For `keytool`, install the default `JDK`.
 - For `adb`, install the Android debugging tools. Again I will be using `apt` for that on a modern Linux, but you can easily install those on Windows too.
+- We will need `apksigner` to sign our APK, it comes with the Android debugging tools too.
 
 ```shell
 # apktool
@@ -28,7 +29,7 @@ sudo apt install apktool
 # JDK
 sudo apt install default-jdk
 
-# adb
+# adb and apksigner
 sudo apt install android-tools-adb android-tools-fastboot
 ```
 
@@ -293,4 +294,23 @@ So, I modified the `if` condition and added an invocation to `Log.d` - this is t
 .end method
 ```
 
-Note how I simply ignore the resulting `int` (`I`) from `Log.d` and how I used `v0` for the log message. I could do other things (like increasing `.locals` by one and using `v1`) but for the sake of simplicity I chose not to.
+Note how I simply ignore the resulting `int` (`I`) from `Log.d` and how I used `v0` for the log message. I could do other things (like increasing `.locals` by one and using `v1`) but for the sake of simplicity I chose not to.  
+Okay, now it's time to repack the App, again by using `apktool`:
+
+```
+$ jbo@nix:~ apktool b ./toy -otoy_patched.apk
+```
+
+If all goes well this will repackage the App and generate a new `apk` called `toy_patched.apk`!  
+However, we still need to digitally sign it (as `apktool` does not have the private key for the original `toy.apk`).  
+To do that, we could use `keytool` as such:
+
+```
+$ jbo@nix:~ keytool -genkeypair -v -keystore my-release-key.keystore -alias myalias -keyalg RSA -keysize 2048 -validity 10000
+```
+
+This will generate a new RSA keypair and save it into a file `my-release-key.keystore`. We can then use `apksigner`:
+
+```
+$ jbo@nix:~ apksigner sign --ks my-release-key.keystore --ks-key-alias myalias ./toy_patched.apk
+```
