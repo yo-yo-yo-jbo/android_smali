@@ -32,7 +32,7 @@ sudo apt install default-jdk
 sudo apt install android-tools-adb android-tools-fastboot
 ```
 
-## Introduction to SMALI
+## SMALI in a nutshell
 As I mentioned in [a previous blogpost](https://github.com/yo-yo-yo-jbo/android_appsec_intro/), Android Apps are bundled as `*.apk` files.  
 Those are essentially zip files, with a predefined structure:
 - A metadata file called `AndroidManifest.xml`.
@@ -135,13 +135,13 @@ $ jbo@nix:~/toy find . -name MainActivity.smali
 ./smali_classes3/com/jbo/toy/MainActivity.smali
 ```
 
-At this point, we need to examine that smali file, I will present it here in a raw form but skip a few parts to keep things neat:
+At this point, we need to examine that smali file, I will be focusing on small parts of it to keep things neat.  
+However, this is how the file starts:
 
-```
+```smali
 .class public Lcom/jbo/toy/MainActivity;
 .super Landroidx/appcompat/app/AppCompatActivity;
 .source "MainActivity.java"
-
 
 # direct methods
 .method public constructor <init>()V
@@ -152,7 +152,23 @@ At this point, we need to examine that smali file, I will present it here in a r
 
     return-void
 .end method
+```
 
+Let's analyze line by line:
+- `.class` describes the class - its name is `com.jbo.toy.MainActivity` (note `.` is replaced by `/`). As I mentioned, class types start with an `L` and end with a semicolon.
+- `.super` declares the superclass - our class derives from a base class `androidx.appcompat.app.AppCompatActivity`.
+- `.source` is helpful for deubgging - the source file is called `MainActivity.java`. Note this will be omitted in release builds.
+- We then start with our first method - the class's constructor, which is called `<init>`, gets no arguments and returns void - thus declared `.method public constructor <init>()V`.
+- Our method does not use any local registers, so it says `.locals 0`. As I mentioned previously, `p0` in non-static methods is `this`, so it's well-defined.
+- The `.line` directive is useful for debugging, but will be omitted in release builds.
+- Our first instruction is `invoke-direct`, which is a method call. In this case it calls another method - `AppCompatActivity`'s constructor! Note it pushes `p0` as an argument, since the constructor must get a `this` instance.
+- Lastly, `return-void` instruction basically means we return from the method without specifying a return value, as expected.
+
+Note the JVM will check types of everything - so, if we try returning an integer in this function the JVM will crash the App.
+
+Let us continue and examine the `getTitle` method:
+
+```smali
 .method private static getTitle(Z)Ljava/lang/String;
     .locals 1
     .param p0, "showName"    # Z
@@ -171,44 +187,12 @@ At this point, we need to examine that smali file, I will present it here in a r
 
     return-object v0
 .end method
-
-.method private showToast()V
-    .locals 5
-
-    .line 30
-    new-instance v0, Ljava/util/Random;
-
-    invoke-direct {v0}, Ljava/util/Random;-><init>()V
-
-    .line 31
-    .local v0, "random":Ljava/util/Random;
-    invoke-virtual {v0}, Ljava/util/Random;->nextBoolean()Z
-
-    move-result v1
-
-    .line 32
-    .local v1, "randomBoolean":Z
-    invoke-static {v1}, Lcom/jbo/toy/MainActivity;->getTitle(Z)Ljava/lang/String;
-
-    move-result-object v2
-
-    .line 33
-    .local v2, "title":Ljava/lang/String;
-    invoke-virtual {p0}, Lcom/jbo/toy/MainActivity;->getApplicationContext()Landroid/content/Context;
-
-    move-result-object v3
-
-    const/4 v4, 0x0
-
-    invoke-static {v3, v2, v4}, Landroid/widget/Toast;->makeText(Landroid/content/Context;Ljava/lang/CharSequence;I)Landroid/widget/Toast;
-
-    move-result-object v3
-
-    .line 34
-    .local v3, "toast":Landroid/widget/Toast;
-    invoke-virtual {v3}, Landroid/widget/Toast;->show()V
-
-    .line 35
-    return-void
-.end method
 ```
+
+Notes:
+- This method is `private` and `static`. It gets a boolean (`Z`) and returns a String, thus declared `.method private static getTitle(Z)Ljava/lang/String;`.
+- This method declares it requires one local register (`.locals 1`). It will use the register `v0` for that. Note JVM will crash if you try to refer to higher numbers (e.g. `v1`).
+- The `.param` directive is useful for debugging, as it shows you parameter `p0` (the first argument, since this is a static method) is called `showName`. You won't find it in release builds though.
+- Logic starts later at a condition: `if-eqz` should be read as "if equal to zero" - in this case, `p0` is our boolean, so it'd be equal to 0 if it's `false` (in JVM, zero is false and non-zero is true). If `p0` is zero we jump to a *label* named `:cond_0`. Labels start with a colon.
+- Assuming we did not jump, we assign register `v0` a constant string (via `const-string` instruction). If this looks odd (how can a 32-bit register contain an entire long string?) keep in mind this is implemented by having v0 refer to a data table in the class in which that string resides. We then call `return-object v0` to exit the function and return that string.
+- If we do jump, we end up in `:cond_0`, which assigns a different string and returns, similarly.
