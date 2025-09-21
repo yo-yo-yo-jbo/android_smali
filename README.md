@@ -314,3 +314,12 @@ This will generate a new RSA keypair and save it into a file `my-release-key.key
 ```
 $ jbo@nix:~ apksigner sign --ks my-release-key.keystore --ks-key-alias myalias ./toy_patched.apk
 ```
+
+## Summary
+This was a practical guide on patching Apps, but most importantly - how to read and modify Smali code.  
+Note there are modern obfuscation tools (e.g. [ProGuard](https://github.com/Guardsquare/proguard)) that make things quite challenging, but obfuscation should not stop a dedicated researcher.  
+I hope to give a better, concrete example that will show a modern App being patched end-to-end, in the future.
+
+Stay tuned!
+
+Jonathan Bar Or
